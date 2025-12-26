@@ -5,13 +5,30 @@ Generates alerts based on health assessments and manages notifications
 
 import json
 import time
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional, Callable, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
 from datetime import datetime
 from collections import deque
 import sqlite3
 from pathlib import Path
+
+
+def make_json_serializable(obj: Any) -> Any:
+    """
+    Recursively convert objects to JSON-serializable format
+    Handles Enums by converting to their values
+    """
+    if isinstance(obj, Enum):
+        return obj.value
+    elif isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [make_json_serializable(item) for item in obj]
+    elif hasattr(obj, '__dict__'):
+        return make_json_serializable(obj.__dict__)
+    else:
+        return obj
 
 
 class AlertLevel(Enum):
@@ -202,13 +219,17 @@ class AlertSystem:
         # Get recommendations
         recommendations = self._get_visual_health_recommendations(visual_metrics)
 
+        # Convert metrics to JSON-serializable format
+        metrics_dict = asdict(visual_metrics)
+        metrics_dict = make_json_serializable(metrics_dict)
+
         return self.generate_alert(
             alert_type=AlertType.VISUAL_HEALTH,
             alert_level=level,
             title=title,
             message=message,
             fish_id=fish_id,
-            metrics=asdict(visual_metrics),
+            metrics=metrics_dict,
             recommendations=recommendations
         )
 
@@ -249,13 +270,17 @@ class AlertSystem:
         # Get recommendations
         recommendations = self._get_behavioral_recommendations(behavior_metrics)
 
+        # Convert metrics to JSON-serializable format
+        metrics_dict = asdict(behavior_metrics)
+        metrics_dict = make_json_serializable(metrics_dict)
+
         return self.generate_alert(
             alert_type=AlertType.BEHAVIORAL_HEALTH,
             alert_level=level,
             title=title,
             message=message,
             fish_id=fish_id,
-            metrics=asdict(behavior_metrics),
+            metrics=metrics_dict,
             recommendations=recommendations
         )
 
