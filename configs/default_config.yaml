@@ -1,0 +1,75 @@
+# Fish Health Monitoring System Configuration
+
+# Detection Settings
+detection:
+  model_path: "yolov8n.pt"  # Path to YOLO model (yolov8n.pt, yolov8s.pt, yolov8m.pt, etc.)
+  confidence_threshold: 0.5  # Minimum confidence for detections
+  iou_threshold: 0.45  # IOU threshold for NMS
+  device: null  # 'cuda', 'cpu', or null for auto-detect
+
+# Tracking Settings
+tracking:
+  max_age: 30  # Maximum frames to keep track alive without detection
+  min_hits: 3  # Minimum hits before track is confirmed
+  iou_threshold: 0.3  # Minimum IOU for matching detection to track
+
+# Visual Health Analysis
+visual_health:
+  use_deep_features: true  # Use deep learning features for analysis
+  thresholds:
+    healthy: 0.7  # Score >= 0.7 is healthy
+    mild_concern: 0.5  # Score >= 0.5 is mild concern
+    moderate_concern: 0.3  # Score >= 0.3 is moderate concern
+    # Score < 0.3 is severe concern
+
+# Behavioral Analysis
+behavior:
+  history_length: 100  # Number of frames to keep in history
+  normal_speed_range: [1.0, 15.0]  # Normal swimming speed in pixels/frame
+  normal_surface_ratio: 0.2  # Normal proportion of time at surface
+  normal_bottom_ratio: 0.3  # Normal proportion of time at bottom
+  thresholds:
+    normal: 0.7
+    slight_abnormal: 0.5
+    moderate_abnormal: 0.3
+
+# Alert System
+alerts:
+  database_path: "data/alerts.db"  # Path to alert database
+  history_size: 1000  # Number of alerts to keep in memory
+  thresholds:
+    critical_health: 0.3  # Generate critical alert if health < 0.3
+    warning_health: 0.5  # Generate warning if health < 0.5
+    critical_behavior: 0.3  # Generate critical alert if behavior < 0.3
+    warning_behavior: 0.5  # Generate warning if behavior < 0.5
+
+# Video Processing
+video:
+  fps: 30.0  # Video frame rate
+  tank_height: 480  # Height of tank in pixels (for depth analysis)
+  enable_visualization: true  # Generate visualization frames
+  display_trails: true  # Show fish movement trails
+  trail_length: 30  # Number of frames for trail
+
+# Performance
+performance:
+  batch_size: 1  # Batch size for detection (>1 for batch processing)
+  max_workers: 4  # Maximum worker threads for parallel processing
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file: "logs/fish_health_monitor.log"
+  console_output: true
+
+# Notifications
+notifications:
+  enable_email: false  # Enable email notifications
+  enable_webhook: false  # Enable webhook notifications
+  webhook_url: null  # Webhook URL for alerts
+  email_config:
+    smtp_server: null
+    smtp_port: 587
+    sender_email: null
+    receiver_emails: []
+    password: null
