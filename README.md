@@ -15,6 +15,50 @@ This system automatically detects multiple fish in live video streams and assess
 - **Alert System**: Generates alerts with severity levels and actionable recommendations
 - **Live Monitoring**: Supports both video files and live camera feeds
 - **Visualization**: Real-time visualization with health status overlays
+- **Mac Support**: Full support for macOS including Apple Silicon (M1/M2/M3) with GPU acceleration
+
+## Quick Start for Mac Users 🍎
+
+Perfect for monitoring your home fish tank! Here's the fastest way to get started on macOS:
+
+### 1. Install (5 minutes)
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/Fish-CNN.git
+cd Fish-CNN
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Run Live Monitoring
+
+```bash
+# Start monitoring from Mac camera
+python examples/mac_camera_monitoring.py
+```
+
+**First time**: macOS will ask for camera permissions. Grant access and restart the script.
+
+### 3. Fine-Tune on Your Tank (Later)
+
+After initial testing, train a custom model on your specific fish:
+
+```bash
+# Collect training data (5-10 minutes of footage)
+python scripts/collect_training_data.py --duration 300
+
+# Annotate fish using Roboflow (free): roboflow.com
+# Then train custom model
+python scripts/train_fish_detector.py --data path/to/your/data.yaml
+```
+
+📖 **Detailed guides**: See [Mac Installation Guide](docs/MAC_INSTALLATION.md) and [Fine-Tuning Guide](docs/FINE_TUNING_GUIDE.md)
 
 ## System Architecture
 
@@ -65,6 +109,8 @@ This system automatically detects multiple fish in live video streams and assess
 ```
 
 ## Installation
+
+> **Mac Users**: See the dedicated [Mac Installation Guide](docs/MAC_INSTALLATION.md) for macOS-specific instructions, including Apple Silicon (M1/M2/M3) GPU acceleration setup.
 
 ### Prerequisites
 
