@@ -139,9 +139,21 @@ def main():
     # Use smaller model for better Mac performance
     model_path = "yolov8n.pt"  # Nano model - fastest
 
+    print("\n" + "⚠️ "*35)
+    print("IMPORTANT: Generic Model Warning")
+    print("⚠️ "*35)
+    print("This uses a GENERIC YOLO model (trained on people/cars, NOT fish)!")
+    print("It will filter out people, but may still detect random objects.")
+    print("\nFor ACTUAL fish detection in your tank:")
+    print("  1. Record your tank: python scripts/collect_training_data.py")
+    print("  2. Annotate on Roboflow.com (free)")
+    print("  3. Train: python scripts/train_fish_detector.py")
+    print("\n📖 Full guide: docs/FINE_TUNING_GUIDE.md")
+    print("="*70)
+
     monitor = FishHealthMonitor(
         detector_model_path=model_path,
-        detection_confidence=0.5,
+        detection_confidence=0.6,  # Higher threshold for generic model
         enable_visualization=True,
         device=device  # Use detected device (mps or cpu)
     )

@@ -1,0 +1,69 @@
+# Fish Health Monitoring System Configuration - Mac Optimized
+
+# Detection Settings (Optimized for Mac)
+detection:
+  model_path: "yolov8n.pt"  # Nano model - fastest for Mac
+  confidence_threshold: 0.6  # Higher = fewer false detections
+  iou_threshold: 0.45
+  device: null  # Auto-detect (will use MPS on Apple Silicon)
+  imgsz: 416  # Smaller = faster (default is 640)
+
+# Tracking Settings
+tracking:
+  max_age: 30
+  min_hits: 3
+  iou_threshold: 0.3
+
+# Visual Health Analysis
+visual_health:
+  use_deep_features: false  # Disable for better performance
+  thresholds:
+    healthy: 0.7
+    mild_concern: 0.5
+    moderate_concern: 0.3
+
+# Behavioral Analysis
+behavior:
+  history_length: 50  # Reduced from 100 for better performance
+  normal_speed_range: [1.0, 15.0]
+  normal_surface_ratio: 0.2
+  normal_bottom_ratio: 0.3
+  thresholds:
+    normal: 0.7
+    slight_abnormal: 0.5
+    moderate_abnormal: 0.3
+
+# Alert System (Less sensitive for generic model)
+alerts:
+  database_path: "data/alerts.db"
+  history_size: 1000
+  thresholds:
+    critical_health: 0.2  # Lower threshold to reduce false positives
+    warning_health: 0.4
+    critical_behavior: 0.2
+    warning_behavior: 0.4
+
+# Video Processing
+video:
+  fps: 30.0
+  tank_height: 480
+  enable_visualization: true
+  display_trails: true
+  trail_length: 20  # Reduced from 30
+
+# Performance (Mac Optimized)
+performance:
+  batch_size: 1
+  max_workers: 2  # Reduced for Mac
+  skip_frames: 0  # Process every frame (0) or skip frames (1, 2, 3...)
+
+# Logging
+logging:
+  level: "INFO"
+  log_file: "logs/fish_health_monitor.log"
+  console_output: true
+
+# Demo Mode Warning
+demo_mode:
+  enabled: true  # Show warning that generic model is being used
+  remind_fine_tune: true  # Remind user to fine-tune

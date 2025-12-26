@@ -54,7 +54,8 @@ class FishDetector:
         model_path: str = "yolov8n.pt",
         confidence_threshold: float = 0.5,
         iou_threshold: float = 0.45,
-        device: Optional[str] = None
+        device: Optional[str] = None,
+        filter_classes: Optional[List[int]] = None
     ):
         """
         Initialize fish detector
@@ -64,6 +65,7 @@ class FishDetector:
             confidence_threshold: Minimum confidence for detections
             iou_threshold: IOU threshold for NMS
             device: Device to run model on ('cuda', 'cpu', or None for auto)
+            filter_classes: List of class IDs to EXCLUDE (e.g., [0] to filter out 'person')
         """
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
@@ -80,6 +82,18 @@ class FishDetector:
 
         # Frame counter
         self.frame_count = 0
+
+        # Class filtering for generic models
+        # Default: filter out 'person' (class 0 in COCO) to avoid detecting humans as fish!
+        if filter_classes is None and model_path in ['yolov8n.pt', 'yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']:
+            # Using generic COCO model - filter out common non-fish classes
+            self.filter_classes = [0, 1, 2, 3, 5, 7]  # person, bicycle, car, motorcycle, bus, truck
+            print("⚠️  WARNING: Using generic YOLO model (trained on people/cars, NOT fish)")
+            print("   Filtering out: person, bicycle, car, motorcycle, bus, truck")
+            print("   For accurate fish detection, fine-tune on your tank!")
+            print("   See: docs/FINE_TUNING_GUIDE.md")
+        else:
+            self.filter_classes = filter_classes or []
 
     def detect(
         self,
@@ -121,6 +135,10 @@ class FishDetector:
                 conf = float(boxes.conf[i].cpu().numpy())
                 cls_id = int(boxes.cls[i].cpu().numpy())
                 cls_name = result.names[cls_id]
+
+                # Filter out unwanted classes (e.g., person, car, etc.)
+                if cls_id in self.filter_classes:
+                    continue
 
                 detection = Detection(
                     bbox=(x1, y1, x2, y2),
@@ -173,6 +191,10 @@ class FishDetector:
                 conf = float(boxes.conf[i].cpu().numpy())
                 cls_id = int(boxes.cls[i].cpu().numpy())
                 cls_name = result.names[cls_id]
+
+                # Filter out unwanted classes
+                if cls_id in self.filter_classes:
+                    continue
 
                 detection = Detection(
                     bbox=(x1, y1, x2, y2),
