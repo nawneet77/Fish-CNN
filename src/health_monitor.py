@@ -170,20 +170,24 @@ class FishHealthMonitor:
             health_reports.append(report)
             self.health_reports[track.track_id] = report
 
-            # Check for alerts
-            visual_alert = self.alert_system.check_visual_health(
-                track.track_id,
-                visual_health
-            )
-            if visual_alert:
-                new_alerts.append(visual_alert)
+            # Check for alerts (only for well-established tracks)
+            # Require at least 30 frames of tracking to avoid false alarms on startup
+            MIN_FRAMES_FOR_ALERTS = 30
 
-            behavioral_alert = self.alert_system.check_behavioral_health(
-                track.track_id,
-                behavioral_health
-            )
-            if behavioral_alert:
-                new_alerts.append(behavioral_alert)
+            if track.hits >= MIN_FRAMES_FOR_ALERTS:
+                visual_alert = self.alert_system.check_visual_health(
+                    track.track_id,
+                    visual_health
+                )
+                if visual_alert:
+                    new_alerts.append(visual_alert)
+
+                behavioral_alert = self.alert_system.check_behavioral_health(
+                    track.track_id,
+                    behavioral_health
+                )
+                if behavioral_alert:
+                    new_alerts.append(behavioral_alert)
 
         # Step 4: Generate visualization
         if self.enable_visualization:
@@ -329,8 +333,15 @@ class FishHealthMonitor:
 
                 timestamp = time.time()
 
-                # Process frame
-                vis_frame, reports, alerts = self.process_frame(frame, timestamp)
+                # Process frame with error handling
+                try:
+                    vis_frame, reports, alerts = self.process_frame(frame, timestamp)
+                except Exception as e:
+                    print(f"\nWarning: Error processing frame {frame_count}: {e}")
+                    # Show original frame on error
+                    vis_frame = frame
+                    reports = []
+                    alerts = []
 
                 # Print new alerts
                 for alert in alerts:

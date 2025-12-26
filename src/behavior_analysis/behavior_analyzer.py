@@ -406,13 +406,13 @@ class BehaviorAnalyzer:
         """Return default metrics when analysis fails"""
         return BehaviorMetrics(
             swimming_speed=0.0,
-            swimming_pattern_score=0.5,
-            activity_level_score=0.5,
+            swimming_pattern_score=0.7,  # Neutral - assume healthy until proven otherwise
+            activity_level_score=0.7,
             isolation_score=0.5,
             surface_time_ratio=0.0,
             bottom_time_ratio=0.0,
             erratic_movement_score=0.0,
-            overall_behavior_score=0.5,
+            overall_behavior_score=0.7,  # Above warning threshold to avoid false alarms
             behavior_status=BehaviorStatus.UNKNOWN,
             behavioral_symptoms=["insufficient_data"]
         )
