@@ -1,0 +1,12 @@
+names:
+- Fish
+nc: 1
+roboflow:
+  license: CC BY 4.0
+  project: fishy-v0get
+  url: https://universe.roboflow.com/nawneet/fishy-v0get/dataset/3
+  version: 3
+  workspace: nawneet
+test: ../test/images
+train: ../train/images
+val: ../valid/images
