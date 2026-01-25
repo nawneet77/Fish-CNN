@@ -42,7 +42,9 @@ class FishHealthMonitor:
         alert_db_path: str = "alerts.db",
         device: Optional[str] = None,
         fps: float = 30.0,
-        enable_visualization: bool = True
+        enable_visualization: bool = True,
+        analysis_interval: int = 5,
+        skip_expensive_analysis: bool = True
     ):
         """
         Initialize fish health monitoring system
@@ -52,10 +54,23 @@ class FishHealthMonitor:
             detection_confidence: Minimum confidence for detections
             tracker_max_age: Maximum age for tracks
             alert_db_path: Path to alert database
-            device: Device for models ('cuda', 'cpu', or None for auto)
+            device: Device for models ('cuda', 'mps', 'cpu', or None for auto)
             fps: Video frame rate
             enable_visualization: Whether to generate visualization frames
+            analysis_interval: Analyze health every N frames (1 = every frame, 5 = every 5th frame)
+            skip_expensive_analysis: Skip expensive operations (eye detection, fin analysis)
         """
+        # Auto-detect device if not specified
+        if device is None:
+            import torch
+            import platform
+            if torch.cuda.is_available():
+                device = 'cuda'
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                device = 'mps'  # Apple Silicon GPU
+            else:
+                device = 'cpu'
+        
         # Initialize components
         self.detector = FishDetector(
             model_path=detector_model_path,
@@ -70,7 +85,8 @@ class FishHealthMonitor:
 
         self.visual_analyzer = VisualHealthAnalyzer(
             use_deep_features=True,
-            device=device
+            device=device,
+            skip_expensive_analysis=skip_expensive_analysis
         )
 
         self.behavior_analyzer = BehaviorAnalyzer(
@@ -84,6 +100,11 @@ class FishHealthMonitor:
 
         self.enable_visualization = enable_visualization
         self.fps = fps
+        self.analysis_interval = analysis_interval
+        self.skip_expensive_analysis = skip_expensive_analysis
+
+        # Frame counter for analysis interval
+        self.frame_count = 0
 
         # Health reports cache
         self.health_reports: Dict[int, FishHealthReport] = {}
@@ -121,6 +142,16 @@ class FishHealthMonitor:
         health_reports = []
         new_alerts = []
 
+        # Increment frame counter
+        self.frame_count += 1
+
+        # Determine if we should do full analysis this frame
+        # Always analyze on first frame or when interval matches
+        should_analyze = (
+            self.frame_count % self.analysis_interval == 0 or
+            self.frame_count == 1
+        )
+
         # Get positions of all fish for social analysis
         all_positions = [track.get_current_bbox() for track in active_tracks]
         all_centers = [(
@@ -129,65 +160,127 @@ class FishHealthMonitor:
         ) for bbox in all_positions]
 
         for track in active_tracks:
-            # Visual health assessment
-            current_bbox = track.get_current_bbox()
-            visual_health = self.visual_analyzer.analyze(
-                frame,
-                current_bbox,
-                track_history=list(track.detections)
-            )
+            # Check if we should analyze this fish
+            # Always analyze new tracks (not in cache) or when interval matches
+            is_new_track = track.track_id not in self.health_reports
+            
+            if should_analyze or is_new_track:
+                # Full health analysis
+                current_bbox = track.get_current_bbox()
+                visual_health = self.visual_analyzer.analyze(
+                    frame,
+                    current_bbox,
+                    track_history=list(track.detections)
+                )
 
-            # Behavioral assessment
-            position_history = track.get_position_history(n=100)
-            bbox_history = [d.bbox for d in list(track.detections)[-100:]]
+                # Behavioral assessment
+                position_history = track.get_position_history(n=100)
+                bbox_history = [d.bbox for d in list(track.detections)[-100:]]
 
-            # Get other fish positions (excluding current fish)
-            other_positions = [pos for i, pos in enumerate(all_centers)
-                             if i != active_tracks.index(track)]
+                # Get other fish positions (excluding current fish)
+                other_positions = [pos for i, pos in enumerate(all_centers)
+                                 if i != active_tracks.index(track)]
 
-            behavioral_health = self.behavior_analyzer.analyze(
-                position_history,
-                bbox_history,
-                other_positions
-            )
+                behavioral_health = self.behavior_analyzer.analyze(
+                    position_history,
+                    bbox_history,
+                    other_positions
+                )
 
-            # Calculate overall health score
-            overall_health = (
-                0.5 * visual_health.overall_health_score +
-                0.5 * behavioral_health.overall_behavior_score
-            )
+                # Calculate overall health score
+                overall_health = (
+                    0.5 * visual_health.overall_health_score +
+                    0.5 * behavioral_health.overall_behavior_score
+                )
 
-            # Create health report
-            report = FishHealthReport(
-                track_id=track.track_id,
-                timestamp=timestamp,
-                visual_health=visual_health,
-                behavioral_health=behavioral_health,
-                overall_health_score=overall_health,
-                confidence=track.hits / max(track.age, 1)
-            )
+                # Create health report
+                report = FishHealthReport(
+                    track_id=track.track_id,
+                    timestamp=timestamp,
+                    visual_health=visual_health,
+                    behavioral_health=behavioral_health,
+                    overall_health_score=overall_health,
+                    confidence=track.hits / max(track.age, 1)
+                )
 
-            health_reports.append(report)
-            self.health_reports[track.track_id] = report
+                health_reports.append(report)
+                self.health_reports[track.track_id] = report
+            else:
+                # Reuse previous analysis (much faster!)
+                if track.track_id in self.health_reports:
+                    report = self.health_reports[track.track_id]
+                    # Update timestamp but keep health scores
+                    report = FishHealthReport(
+                        track_id=track.track_id,
+                        timestamp=timestamp,
+                        visual_health=report.visual_health,
+                        behavioral_health=report.behavioral_health,
+                        overall_health_score=report.overall_health_score,
+                        confidence=track.hits / max(track.age, 1)
+                    )
+                    health_reports.append(report)
+                else:
+                    # First time seeing this track, must analyze
+                    current_bbox = track.get_current_bbox()
+                    visual_health = self.visual_analyzer.analyze(
+                        frame,
+                        current_bbox,
+                        track_history=list(track.detections)
+                    )
+                    position_history = track.get_position_history(n=100)
+                    bbox_history = [d.bbox for d in list(track.detections)[-100:]]
+                    other_positions = [pos for i, pos in enumerate(all_centers)
+                                     if i != active_tracks.index(track)]
+                    behavioral_health = self.behavior_analyzer.analyze(
+                        position_history,
+                        bbox_history,
+                        other_positions
+                    )
+                    overall_health = (
+                        0.5 * visual_health.overall_health_score +
+                        0.5 * behavioral_health.overall_behavior_score
+                    )
+                    report = FishHealthReport(
+                        track_id=track.track_id,
+                        timestamp=timestamp,
+                        visual_health=visual_health,
+                        behavioral_health=behavioral_health,
+                        overall_health_score=overall_health,
+                        confidence=track.hits / max(track.age, 1)
+                    )
+                    health_reports.append(report)
+                    self.health_reports[track.track_id] = report
 
             # Check for alerts (only for well-established tracks)
             # Require at least 30 frames of tracking to avoid false alarms on startup
             MIN_FRAMES_FOR_ALERTS = 30
 
             if track.hits >= MIN_FRAMES_FOR_ALERTS:
-                visual_alert = self.alert_system.check_visual_health(
-                    track.track_id,
-                    visual_health
-                )
-                if visual_alert:
-                    new_alerts.append(visual_alert)
+                # Get the report for this specific track
+                current_report = None
+                for report in health_reports:
+                    if report.track_id == track.track_id:
+                        current_report = report
+                        break
+                
+                # Fallback to cached report if not in current batch
+                if current_report is None:
+                    current_report = self.health_reports.get(track.track_id)
+                
+                if current_report:
+                    visual_alert = self.alert_system.check_visual_health(
+                        track.track_id,
+                        current_report.visual_health
+                    )
+                    if visual_alert:
+                        new_alerts.append(visual_alert)
 
-                behavioral_alert = self.alert_system.check_behavioral_health(
-                    track.track_id,
-                    behavioral_health
-                )
-                if behavioral_alert:
-                    new_alerts.append(behavioral_alert)
+                    behavioral_alert = self.alert_system.check_behavioral_health(
+                        track.track_id,
+                        current_report.behavioral_health
+                    )
+                    if behavioral_alert:
+                        new_alerts.append(behavioral_alert)
 
         # Step 4: Generate visualization
         if self.enable_visualization:
@@ -244,9 +337,13 @@ class FishHealthMonitor:
 
         all_reports = []
         frame_count = 0
+        
+        # Reset frame counter for new video
+        self.frame_count = 0
 
         print(f"Processing video: {video_path}")
         print(f"FPS: {fps}, Resolution: {width}x{height}")
+        print(f"Analysis interval: Every {self.analysis_interval} frames")
 
         try:
             while True:
@@ -321,8 +418,12 @@ class FishHealthMonitor:
 
         print(f"Starting live monitoring from camera {camera_id}")
         print("Press 'q' to quit, 's' to screenshot, 'a' to show active alerts")
+        print(f"Analysis interval: Every {self.analysis_interval} frames")
 
         frame_count = 0
+        
+        # Reset frame counter for new camera session
+        self.frame_count = 0
 
         try:
             while True:
@@ -537,3 +638,4 @@ class FishHealthMonitor:
         self.tracker.reset()
         self.health_reports.clear()
         self.processing_times.clear()
+        self.frame_count = 0

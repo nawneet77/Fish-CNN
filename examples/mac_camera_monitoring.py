@@ -155,7 +155,9 @@ def main():
         detector_model_path=model_path,
         detection_confidence=0.6,  # Higher threshold for generic model
         enable_visualization=True,
-        device=device  # Use detected device (mps or cpu)
+        device=device,  # Use detected device (mps or cpu)
+        analysis_interval=5,  # Analyze health every 5th frame (3-5x faster!)
+        skip_expensive_analysis=True  # Skip eye detection and fin analysis for better FPS
     )
 
     print(f"\n{'='*70}")

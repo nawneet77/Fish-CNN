@@ -72,7 +72,12 @@ class FishDetector:
 
         # Auto-select device if not specified
         if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            if torch.cuda.is_available():
+                self.device = 'cuda'
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.device = 'mps'  # Apple Silicon GPU
+            else:
+                self.device = 'cpu'
         else:
             self.device = device
 

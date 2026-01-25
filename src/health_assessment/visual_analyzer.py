@@ -43,7 +43,8 @@ class VisualHealthAnalyzer:
     def __init__(
         self,
         use_deep_features: bool = True,
-        device: Optional[str] = None
+        device: Optional[str] = None,
+        skip_expensive_analysis: bool = True
     ):
         """
         Initialize visual health analyzer
@@ -51,8 +52,10 @@ class VisualHealthAnalyzer:
         Args:
             use_deep_features: Whether to use deep learning features
             device: Device to run models on
+            skip_expensive_analysis: Skip expensive operations (eye detection, fin analysis)
         """
         self.use_deep_features = use_deep_features
+        self.skip_expensive_analysis = skip_expensive_analysis
 
         if device is None:
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -102,17 +105,32 @@ class VisualHealthAnalyzer:
         color_score = self._analyze_color(fish_roi)
         texture_score = self._analyze_texture(fish_roi)
         body_score = self._analyze_body_condition(fish_roi)
-        fin_score = self._analyze_fin_condition(fish_roi)
-        eye_score = self._analyze_eye_clarity(fish_roi)
-
-        # Calculate overall health score (weighted average)
-        overall_score = (
-            0.25 * color_score +
-            0.20 * texture_score +
-            0.20 * body_score +
-            0.20 * fin_score +
-            0.15 * eye_score
-        )
+        
+        # Skip expensive operations if requested (for performance)
+        if self.skip_expensive_analysis:
+            # Use default values for expensive analyses
+            fin_score = 0.7  # Default healthy fin score
+            eye_score = 0.7  # Default healthy eye score
+            
+            # Calculate overall health score (weighted average, adjusted weights)
+            overall_score = (
+                0.35 * color_score +
+                0.30 * texture_score +
+                0.35 * body_score
+            )
+        else:
+            # Full analysis including expensive operations
+            fin_score = self._analyze_fin_condition(fish_roi)
+            eye_score = self._analyze_eye_clarity(fish_roi)
+            
+            # Calculate overall health score (weighted average)
+            overall_score = (
+                0.25 * color_score +
+                0.20 * texture_score +
+                0.20 * body_score +
+                0.20 * fin_score +
+                0.15 * eye_score
+            )
 
         # Determine health status and symptoms
         health_status, symptoms = self._classify_health_status(

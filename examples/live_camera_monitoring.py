@@ -26,7 +26,9 @@ def main():
     monitor = FishHealthMonitor(
         detector_model_path="yolov8n.pt",
         detection_confidence=0.5,
-        enable_visualization=True
+        enable_visualization=True,
+        analysis_interval=5,  # Analyze health every 5th frame (3-5x faster!)
+        skip_expensive_analysis=True  # Skip eye detection and fin analysis for better FPS
     )
 
     # Camera settings
