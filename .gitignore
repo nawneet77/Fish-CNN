@@ -51,7 +51,6 @@ data/annotations/*
 !data/annotations/.gitkeep
 
 # Models
-models/*
 !models/.gitkeep
 *.pt
 *.pth
