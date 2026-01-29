@@ -136,9 +136,8 @@ def main():
     print(f"\nInitializing Fish Health Monitoring System...")
     print(f"Device: {device.upper()}")
 
-    # Use smaller model for better Mac performance
+    # Use custom trained model
     model_path = "models/custom_trained/best.pt"  # YOUR custom trained model!
- 
     print("\n" + "✅ "*35)
     print("CUSTOM TRAINED MODEL LOADED")
     print("✅ "*35)
@@ -158,7 +157,9 @@ def main():
         detector_model_path=model_path,
         detection_confidence=0.5,  # Optimal for custom model
         enable_visualization=True,
-        device=device  # Skip eye detection and fin analysis for better FPS
+        device=device  # Use detected device (mps or cpu)
+        # Note: Removed analysis_interval and skip_expensive_analysis
+        # Custom model is accurate enough for full analysis every frame
     )
 
     print(f"\n{'='*70}")
