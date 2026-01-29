@@ -92,12 +92,13 @@ class Track:
 
         # Extract and store appearance features if frame provided
         if frame is not None:
-            features = self._extract_appearance_features(frame, detection.bbox)
+            features = Track._extract_appearance_features(frame, detection.bbox)
             if features is not None:
                 self.appearance_features.append(features)
                 self.last_frame = frame
 
-    def _extract_appearance_features(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> Optional[np.ndarray]:
+    @staticmethod
+    def _extract_appearance_features(frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> Optional[np.ndarray]:
         """Extract appearance features from fish region for re-identification"""
         try:
             x1, y1, x2, y2 = bbox
@@ -344,7 +345,7 @@ class FishTracker:
                 # Combine IoU with appearance similarity if available
                 if frame is not None and self.appearance_weight > 0:
                     # Extract appearance feature for this detection
-                    det_feature = track._extract_appearance_features(frame, det.bbox)
+                    det_feature = Track._extract_appearance_features(frame, det.bbox)
                     track_feature = track.get_appearance_feature()
 
                     if det_feature is not None and track_feature is not None:
@@ -405,7 +406,7 @@ class FishTracker:
 
         for d_idx, det_idx in enumerate(unmatched_det_indices):
             det = detections[det_idx]
-            det_feature = Track()._extract_appearance_features(frame, det.bbox)
+            det_feature = Track._extract_appearance_features(frame, det.bbox)
 
             if det_feature is None:
                 continue
