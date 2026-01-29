@@ -112,6 +112,17 @@ class FishHealthMonitor:
         # Performance metrics
         self.processing_times = []
 
+        # Alert deduplication tracking
+        # Format: {fish_id: {alert_type: last_alert_timestamp}}
+        self.last_alert_times: Dict[int, Dict[str, float]] = {}
+        self.alert_cooldown = 60.0  # Don't repeat same alert within 60 seconds
+
+        # Baseline collection mode
+        self.baseline_mode = True  # Start in baseline collection mode
+        self.baseline_frames_needed = 900  # Collect 30 seconds of baseline (at 30 FPS)
+        self.baseline_data: Dict[int, List[float]] = {}  # {fish_id: [health_scores]}
+        self.baseline_scores: Dict[int, float] = {}  # {fish_id: average_baseline_score}
+
     def process_frame(
         self,
         frame: np.ndarray,
@@ -255,32 +266,73 @@ class FishHealthMonitor:
             # Require at least 30 frames of tracking to avoid false alarms on startup
             MIN_FRAMES_FOR_ALERTS = 30
 
-            if track.hits >= MIN_FRAMES_FOR_ALERTS:
-                # Get the report for this specific track
-                current_report = None
-                for report in health_reports:
-                    if report.track_id == track.track_id:
-                        current_report = report
-                        break
-                
-                # Fallback to cached report if not in current batch
-                if current_report is None:
-                    current_report = self.health_reports.get(track.track_id)
-                
-                if current_report:
+            # Get the report for this specific track
+            current_report = None
+            for report in health_reports:
+                if report.track_id == track.track_id:
+                    current_report = report
+                    break
+
+            # Fallback to cached report if not in current batch
+            if current_report is None:
+                current_report = self.health_reports.get(track.track_id)
+
+            # Collect baseline data during initial monitoring period
+            if self.baseline_mode and current_report and track.hits >= MIN_FRAMES_FOR_ALERTS:
+                fish_id = track.track_id
+                if fish_id not in self.baseline_data:
+                    self.baseline_data[fish_id] = []
+
+                self.baseline_data[fish_id].append(current_report.overall_health_score)
+
+                # Check if we've collected enough baseline data
+                if self.frame_count >= self.baseline_frames_needed:
+                    # Calculate average baseline scores for each fish
+                    for fid, scores in self.baseline_data.items():
+                        if scores:
+                            self.baseline_scores[fid] = sum(scores) / len(scores)
+
+                    self.baseline_mode = False
+                    print(f"\n{'='*70}")
+                    print("BASELINE COLLECTION COMPLETE")
+                    print(f"{'='*70}")
+                    print(f"Collected baseline data for {len(self.baseline_scores)} fish")
+                    for fid, score in self.baseline_scores.items():
+                        print(f"  Fish #{fid}: Average baseline health = {score:.2f}")
+                    print("\n🔔 Alert monitoring is now ACTIVE")
+                    print(f"{'='*70}\n")
+
+            # Generate alerts only after baseline collection and for well-established tracks
+            if not self.baseline_mode and track.hits >= MIN_FRAMES_FOR_ALERTS and current_report:
+                fish_id = track.track_id
+
+                # Initialize alert tracking for this fish if needed
+                if fish_id not in self.last_alert_times:
+                    self.last_alert_times[fish_id] = {}
+
+                # Check visual health alert (with cooldown)
+                visual_alert_key = "visual_health"
+                last_visual_alert = self.last_alert_times[fish_id].get(visual_alert_key, 0)
+                if timestamp - last_visual_alert > self.alert_cooldown:
                     visual_alert = self.alert_system.check_visual_health(
-                        track.track_id,
+                        fish_id,
                         current_report.visual_health
                     )
                     if visual_alert:
                         new_alerts.append(visual_alert)
+                        self.last_alert_times[fish_id][visual_alert_key] = timestamp
 
+                # Check behavioral health alert (with cooldown)
+                behavioral_alert_key = "behavioral_health"
+                last_behavioral_alert = self.last_alert_times[fish_id].get(behavioral_alert_key, 0)
+                if timestamp - last_behavioral_alert > self.alert_cooldown:
                     behavioral_alert = self.alert_system.check_behavioral_health(
-                        track.track_id,
+                        fish_id,
                         current_report.behavioral_health
                     )
                     if behavioral_alert:
                         new_alerts.append(behavioral_alert)
+                        self.last_alert_times[fish_id][behavioral_alert_key] = timestamp
 
         # Step 4: Generate visualization
         if self.enable_visualization:
@@ -587,14 +639,24 @@ class FishHealthMonitor:
             cv2.putText(frame, text, (10, y), font, font_scale, color, thickness)
             y += spacing
 
-        # Active alerts
-        active_alerts = self.alert_system.get_active_alerts()
-        alert_summary = self.alert_system.get_alert_summary()
+        # Baseline collection status or Active alerts
+        if self.baseline_mode:
+            progress = min(100.0, (self.frame_count / self.baseline_frames_needed) * 100)
+            text = f"BASELINE MODE: Collecting normal behavior data... {progress:.0f}%"
+            cv2.putText(frame, text, (10, y), font, font_scale, (0, 255, 255), thickness)  # Yellow color
+            y += spacing
+            text = f"Alerts will activate after baseline collection (prevents false alarms)"
+            cv2.putText(frame, text, (10, y), font, 0.4, (0, 255, 255), thickness)
+            y += spacing
+        else:
+            # Active alerts
+            active_alerts = self.alert_system.get_active_alerts()
+            alert_summary = self.alert_system.get_alert_summary()
 
-        text = f"Active Alerts: {alert_summary['total_active']} "
-        text += f"(Critical:{alert_summary['critical']} Warning:{alert_summary['warning']})"
-        cv2.putText(frame, text, (10, y), font, font_scale, color, thickness)
-        y += spacing
+            text = f"Active Alerts: {alert_summary['total_active']} "
+            text += f"(Critical:{alert_summary['critical']} Warning:{alert_summary['warning']})"
+            cv2.putText(frame, text, (10, y), font, font_scale, color, thickness)
+            y += spacing
 
         # Processing FPS
         if self.processing_times:
@@ -639,3 +701,39 @@ class FishHealthMonitor:
         self.health_reports.clear()
         self.processing_times.clear()
         self.frame_count = 0
+        self.last_alert_times.clear()
+        self.baseline_data.clear()
+        self.baseline_scores.clear()
+        self.baseline_mode = True
+
+    def skip_baseline_collection(self):
+        """
+        Skip baseline collection and start alerting immediately.
+        Use this if you already know your fish's normal behavior.
+        """
+        self.baseline_mode = False
+        print(f"\n{'='*70}")
+        print("⚠️  BASELINE COLLECTION SKIPPED")
+        print(f"{'='*70}")
+        print("Alert monitoring is now ACTIVE (without baseline)")
+        print("⚠️  WARNING: May generate false alerts without baseline data")
+        print(f"{'='*70}\n")
+
+    def get_baseline_status(self) -> Dict:
+        """Get current baseline collection status"""
+        if not self.baseline_mode:
+            return {
+                'collecting': False,
+                'progress': 100.0,
+                'fish_count': len(self.baseline_scores),
+                'baseline_scores': self.baseline_scores.copy()
+            }
+
+        progress = min(100.0, (self.frame_count / self.baseline_frames_needed) * 100)
+        return {
+            'collecting': True,
+            'progress': progress,
+            'frames_collected': self.frame_count,
+            'frames_needed': self.baseline_frames_needed,
+            'fish_count': len(self.baseline_data)
+        }

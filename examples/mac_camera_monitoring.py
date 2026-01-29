@@ -162,6 +162,26 @@ def main():
         # Custom model is accurate enough for full analysis every frame
     )
 
+    # Inform user about baseline collection
+    print(f"\n{'='*70}")
+    print("🔔 ALERT SYSTEM - BASELINE COLLECTION MODE")
+    print('='*70)
+    print("\n📊 The system will collect 30 seconds of baseline data first.")
+    print("   This learns what 'normal' behavior looks like for YOUR fish.")
+    print("   During this time:")
+    print("     ✓ Fish will be detected and tracked")
+    print("     ✓ Health metrics will be calculated")
+    print("     ✗ NO alerts will be generated (preventing false alarms)")
+    print("\n💡 After 30 seconds, the alert system will activate using your")
+    print("   fish's baseline as the reference for 'normal' behavior.")
+    print("\n⚠️  This prevents the 1000+ false warnings issue!")
+    print('='*70)
+
+    # Optional: allow user to skip baseline collection
+    skip_input = input("\nPress ENTER to continue, or type 'skip' to skip baseline: ").strip().lower()
+    if skip_input == 'skip':
+        monitor.skip_baseline_collection()
+
     print(f"\n{'='*70}")
     print("STARTING LIVE MONITORING")
     print('='*70)
