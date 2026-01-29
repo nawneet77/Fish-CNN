@@ -7,11 +7,13 @@ detection:
   iou_threshold: 0.45  # IOU threshold for NMS
   device: null  # 'cuda', 'cpu', or null for auto-detect
 
-# Tracking Settings
+# Tracking Settings (Enhanced for persistent tracking)
 tracking:
-  max_age: 30  # Maximum frames to keep track alive without detection
+  max_age: 150  # Maximum frames to keep track alive without detection (5 seconds at 30 FPS)
   min_hits: 3  # Minimum hits before track is confirmed
-  iou_threshold: 0.3  # Minimum IOU for matching detection to track
+  iou_threshold: 0.2  # Minimum IOU for matching detection to track (lowered for flexibility)
+  appearance_weight: 0.4  # Weight of appearance similarity in matching (0.0-1.0)
+  enable_reid: true  # Enable re-identification of lost tracks using appearance features
 
 # Visual Health Analysis
 visual_health:

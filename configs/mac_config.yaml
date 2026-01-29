@@ -8,11 +8,13 @@ detection:
   device: null  # Auto-detect (will use MPS on Apple Silicon)
   imgsz: 416  # Smaller = faster (default is 640)
 
-# Tracking Settings
+# Tracking Settings (Enhanced for persistent tracking)
 tracking:
-  max_age: 30
-  min_hits: 3
-  iou_threshold: 0.3
+  max_age: 150  # Maximum frames to keep track alive (5 seconds at 30 FPS)
+  min_hits: 3  # Minimum hits before track is confirmed
+  iou_threshold: 0.2  # Lowered for more flexible matching
+  appearance_weight: 0.4  # Use appearance features for better tracking
+  enable_reid: true  # Enable re-identification of temporarily lost fish
 
 # Visual Health Analysis
 visual_health:

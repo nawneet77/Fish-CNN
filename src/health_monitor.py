@@ -38,27 +38,29 @@ class FishHealthMonitor:
         self,
         detector_model_path: str = "yolov8n.pt",
         detection_confidence: float = 0.5,
-        tracker_max_age: int = 30,
+        tracker_max_age: int = 150,  # Increased from 30 to 150 for better persistence
         alert_db_path: str = "alerts.db",
         device: Optional[str] = None,
         fps: float = 30.0,
         enable_visualization: bool = True,
         analysis_interval: int = 5,
-        skip_expensive_analysis: bool = True
+        skip_expensive_analysis: bool = True,
+        enable_reid: bool = True  # Enable appearance-based re-identification
     ):
         """
-        Initialize fish health monitoring system
+        Initialize fish health monitoring system with enhanced tracking
 
         Args:
             detector_model_path: Path to YOLO model
             detection_confidence: Minimum confidence for detections
-            tracker_max_age: Maximum age for tracks
+            tracker_max_age: Maximum frames to keep track alive without detection (default: 150 = 5 sec)
             alert_db_path: Path to alert database
             device: Device for models ('cuda', 'mps', 'cpu', or None for auto)
             fps: Video frame rate
             enable_visualization: Whether to generate visualization frames
             analysis_interval: Analyze health every N frames (1 = every frame, 5 = every 5th frame)
             skip_expensive_analysis: Skip expensive operations (eye detection, fin analysis)
+            enable_reid: Enable appearance-based re-identification for better tracking persistence
         """
         # Auto-detect device if not specified
         if device is None:
@@ -80,7 +82,10 @@ class FishHealthMonitor:
 
         self.tracker = FishTracker(
             max_age=tracker_max_age,
-            min_hits=3
+            min_hits=3,
+            iou_threshold=0.2,  # Lowered for more flexible matching
+            appearance_weight=0.4,  # Balance between position and appearance
+            enable_reid=enable_reid  # Enable re-identification
         )
 
         self.visual_analyzer = VisualHealthAnalyzer(
@@ -146,8 +151,8 @@ class FishHealthMonitor:
         # Step 1: Detect fish
         detections = self.detector.detect(frame, timestamp)
 
-        # Step 2: Update tracker
-        active_tracks = self.tracker.update(detections)
+        # Step 2: Update tracker with frame for appearance-based re-identification
+        active_tracks = self.tracker.update(detections, frame)
 
         # Step 3: Analyze health for each tracked fish
         health_reports = []
