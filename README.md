@@ -157,12 +157,6 @@ python examples/mac_camera_monitoring.py
 
 > **Mac Users**: See the dedicated [Mac Installation Guide](docs/MAC_INSTALLATION.md) for macOS-specific instructions, including Apple Silicon (M1/M2/M3) GPU acceleration setup.
 
-### Prerequisites
-
-- Python 3.8 or higher
-- CUDA-capable GPU (optional, for faster processing)
-- Webcam or video files of aquarium
-
 ### Setup
 
 1. Clone the repository:
