@@ -1,6 +1,6 @@
 # Fish Health Monitoring System
 
-A real-time, AI-powered fish health monitoring system for aquarium environments using computer vision and deep learning.
+A real-time, AI powered fish health monitoring system for aquarium environments using computer vision and deep learning.
 
 ## Overview
 
