@@ -1,0 +1,59 @@
+detection:
+  model_path: models/custom_trained/best.pt
+  confidence_threshold: 0.13
+  iou_threshold: 0.45
+  device: null
+tracking:
+  max_age: 200
+  min_hits: 7
+  iou_threshold: 0.2
+  appearance_weight: 0.32
+  enable_reid: true
+visual_health:
+  use_deep_features: true
+  thresholds:
+    healthy: 0.7
+    mild_concern: 0.5
+    moderate_concern: 0.3
+behavior:
+  history_length: 100
+  normal_speed_range:
+  - 1.0
+  - 15.0
+  normal_surface_ratio: 0.2
+  normal_bottom_ratio: 0.3
+  thresholds:
+    normal: 0.7
+    slight_abnormal: 0.5
+    moderate_abnormal: 0.3
+alerts:
+  database_path: data/alerts.db
+  history_size: 1000
+  thresholds:
+    critical_health: 0.3
+    warning_health: 0.5
+    critical_behavior: 0.3
+    warning_behavior: 0.5
+video:
+  fps: 30.0
+  tank_height: 480
+  enable_visualization: true
+  display_trails: true
+  trail_length: 30
+performance:
+  batch_size: 1
+  max_workers: 4
+logging:
+  level: INFO
+  log_file: logs/fish_health_monitor.log
+  console_output: true
+notifications:
+  enable_email: false
+  enable_webhook: false
+  webhook_url: null
+  email_config:
+    smtp_server: null
+    smtp_port: 587
+    sender_email: null
+    receiver_emails: []
+    password: null

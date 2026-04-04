@@ -38,6 +38,7 @@ class FishHealthMonitor:
         self,
         detector_model_path: str = "yolov8n.pt",
         detection_confidence: float = 0.5,
+        detection_iou_threshold: float = 0.45,
         tracker_max_age: int = 150,  # Increased from 30 to 150 for better persistence
         alert_db_path: str = "alerts.db",
         device: Optional[str] = None,
@@ -53,6 +54,7 @@ class FishHealthMonitor:
         Args:
             detector_model_path: Path to YOLO model
             detection_confidence: Minimum confidence for detections
+            detection_iou_threshold: IOU threshold for NMS (default: 0.45)
             tracker_max_age: Maximum frames to keep track alive without detection (default: 150 = 5 sec)
             alert_db_path: Path to alert database
             device: Device for models ('cuda', 'mps', 'cpu', or None for auto)
@@ -77,6 +79,7 @@ class FishHealthMonitor:
         self.detector = FishDetector(
             model_path=detector_model_path,
             confidence_threshold=detection_confidence,
+            iou_threshold=detection_iou_threshold,
             device=device
         )
 
