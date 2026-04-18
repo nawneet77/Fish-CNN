@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fish Health Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1714; color: #e0e0e0; height: 100vh; overflow: hidden; }
+
+.header { background: #231f1b; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #332e29; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, #6aace8, #8ec5f5); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo svg { width: 16px; height: 16px; }
+.header h1 { font-size: 18px; color: #fff; }
+.header .status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; }
+.status-dot.connected { background: #22c55e; }
+
+.main { display: grid; grid-template-columns: 1fr 380px; height: calc(100vh - 48px); }
+
+.video-panel { padding: 12px; display: flex; flex-direction: column; }
+.video-container { flex: 1; background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.video-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.video-placeholder { color: #666; font-size: 14px; }
+
+.sidebar { background: #231f1b; border-left: 1px solid #332e29; display: flex; flex-direction: column; overflow-y: auto; }
+
+.section { padding: 12px 16px; border-bottom: 1px solid #332e29; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.section-header.clickable { cursor: pointer; user-select: none; }
+.section-header.clickable:hover .section-title { color: #aaa; }
+.section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+.section-right { display: flex; align-items: center; gap: 6px; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #2a2521; color: #aaa; }
+.chevron { width: 12px; height: 12px; color: #666; transition: transform 0.2s; }
+.chevron.closed { transform: rotate(-90deg); }
+
+.collapsible { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s; max-height: 500px; opacity: 1; }
+.collapsible.closed { max-height: 0; opacity: 0; }
+
+.stats-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.stat { background: #2a2521; border-radius: 6px; padding: 8px 10px; text-align: center; }
+.stat-value { font-size: 20px; font-weight: 700; color: #fff; }
+.stat-label { font-size: 10px; color: #888; margin-top: 2px; }
+
+.baseline-bar { background: #2a2521; border-radius: 6px; padding: 10px; margin-top: 8px; display: none; }
+.baseline-progress { height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+.baseline-fill { height: 100%; background: #f59e0b; border-radius: 3px; transition: width 0.3s; }
+.baseline-text { font-size: 12px; color: #f59e0b; }
+.skip-btn { background: #333; color: #ccc; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-top: 6px; }
+.skip-btn:hover { background: #444; }
+
+/* ── Fish Cards (expanded) ── */
+.fish-cards { display: flex; flex-direction: column; gap: 6px; height: 340px; overflow-y: auto; }
+.fish-card { background: #2a2521; border-radius: 6px; padding: 12px; border-left: 3px solid #666; }
+.fish-card.Healthy { border-left-color: #22c55e; }
+.fish-card.Concern { border-left-color: #f59e0b; }
+.fish-card.Warning { border-left-color: #f97316; }
+.fish-card.Critical { border-left-color: #ef4444; }
+
+.fc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.fc-name { font-weight: 700; font-size: 14px; }
+.fc-status { font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-top: 4px; display: inline-block; }
+.fc-status.Healthy { background: #22c55e22; color: #22c55e; }
+.fc-status.Concern { background: #f59e0b22; color: #f59e0b; }
+.fc-status.Warning { background: #f9731622; color: #f97316; }
+.fc-status.Critical { background: #ef444422; color: #ef4444; }
+.fc-score { font-size: 24px; font-weight: 700; }
+.fc-score.Healthy { color: #22c55e; }
+.fc-score.Concern { color: #f59e0b; }
+.fc-score.Warning { color: #f97316; }
+.fc-score.Critical { color: #ef4444; }
+
+.fc-metrics { display: flex; gap: 16px; font-size: 12px; color: #999; margin-bottom: 6px; }
+.fc-metrics span { color: #ccc; }
+
+.sparkline { width: 130px; height: 24px; }
+
+.fc-reasons { font-size: 10px; color: #e8956a; margin-top: 2px; font-style: italic; }
+.sparkline svg { width: 100%; height: 100%; }
+
+/* ── Fish Compact (collapsed) ── */
+.fish-compact { display: flex; flex-direction: column; gap: 4px; }
+.fc-mini { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #2a2521; border-radius: 4px; border-left: 3px solid #666; }
+.fc-mini.Healthy { border-left-color: #22c55e; }
+.fc-mini.Concern { border-left-color: #f59e0b; }
+.fc-mini.Warning { border-left-color: #f97316; }
+.fc-mini.Critical { border-left-color: #ef4444; }
+.fc-mini-id { font-size: 12px; font-weight: 600; min-width: 55px; }
+.fc-mini-status { font-size: 9px; padding: 1px 5px; border-radius: 3px; }
+.fc-mini-status.Healthy { background: #22c55e22; color: #22c55e; }
+.fc-mini-status.Concern { background: #f59e0b22; color: #f59e0b; }
+.fc-mini-status.Warning { background: #f9731622; color: #f97316; }
+.fc-mini-status.Critical { background: #ef444422; color: #ef4444; }
+.fc-mini-score { margin-left: auto; font-size: 14px; font-weight: 700; }
+.fc-mini-score.Healthy { color: #22c55e; }
+.fc-mini-score.Concern { color: #f59e0b; }
+.fc-mini-score.Warning { color: #f97316; }
+.fc-mini-score.Critical { color: #ef4444; }
+
+/* ── Alerts ── */
+.alert-feed { display: flex; flex-direction: column; gap: 3px; max-height: 160px; overflow-y: auto; }
+.alert-item { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #2a2521; border-radius: 4px; border-left: 3px solid #666; font-size: 11px; }
+.alert-item.critical { border-left-color: #ef4444; }
+.alert-item.warning { border-left-color: #f59e0b; }
+.alert-item.info { border-left-color: #3b82f6; }
+.alert-level { font-size: 8px; text-transform: uppercase; padding: 1px 4px; border-radius: 2px; flex-shrink: 0; }
+.alert-level.critical { background: #ef444422; color: #ef4444; }
+.alert-level.warning { background: #f59e0b22; color: #f59e0b; }
+.alert-level.info { background: #3b82f622; color: #3b82f6; }
+.alert-msg { flex: 1; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.alert-time { font-size: 9px; color: #666; flex-shrink: 0; }
+
+.alert-empty { color: #555; font-size: 12px; text-align: center; padding: 16px; }
+
+/* ── Tuning Sliders ── */
+.slider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.slider-row:last-child { margin-bottom: 0; }
+.slider-label { font-size: 11px; color: #999; min-width: 90px; }
+.slider-value { font-size: 11px; color: #fff; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+.slider-row input[type=range] { flex: 1; accent-color: #3b82f6; height: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="brand">
+        <div class="logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.8 0 3.5-.5 5-1.3"/><path d="M16 8c2 1 4 3.5 4 6s-1 3.5-2 4"/><circle cx="9" cy="11" r="1" fill="#fff" stroke="none"/><path d="M6 14c2 2 5 3 8 2"/></svg>
+        </div>
+        <h1>Fish Health Dashboard</h1>
+    </div>
+    <div class="status">
+        <span id="status-text">Connecting...</span>
+        <div class="status-dot" id="status-dot"></div>
+    </div>
+</div>
+
+<div class="main">
+    <div class="video-panel">
+        <div class="video-container">
+            <img id="video-feed" alt="Live Feed" style="display:none;">
+            <div class="video-placeholder" id="video-placeholder">Waiting for video feed...</div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <!-- Stats -->
+        <div class="section">
+            <div class="section-header"><span class="section-title">System</span></div>
+            <div class="stats-bar">
+                <div class="stat"><div class="stat-value" id="stat-fps">--</div><div class="stat-label">FPS</div></div>
+                <div class="stat"><div class="stat-value" id="stat-fish">0</div><div class="stat-label">Fish</div></div>
+                <div class="stat"><div class="stat-value" id="stat-alerts">0</div><div class="stat-label">Alerts</div></div>
+            </div>
+            <div class="baseline-bar" id="baseline-section">
+                <div class="baseline-text" id="baseline-text">Collecting baseline... 0%</div>
+                <div class="baseline-progress"><div class="baseline-fill" id="baseline-fill" style="width:0%"></div></div>
+                <button class="skip-btn" id="skip-btn">Skip Baseline</button>
+            </div>
+        </div>
+
+        <!-- Fish Health (collapsible: expanded = big cards, collapsed = thin rows) -->
+        <div class="section">
+            <div class="section-header clickable" id="fish-toggle">
+                <span class="section-title">Fish Health</span>
+                <div class="section-right">
+                    <span class="badge" id="fish-badge">0 tracked</span>
+                    <svg class="chevron" id="fish-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+            <div class="fish-cards" id="fish-expanded">
+                <div class="alert-empty">No fish detected yet</div>
+            </div>
+            <div class="fish-compact" id="fish-collapsed" style="display:none"></div>
+        </div>
+
+        <!-- Alerts (collapsible) -->
+        <div class="section">
+            <div class="section-header clickable" id="alert-toggle">
+                <span class="section-title">Alerts</span>
+                <div class="section-right">
+                    <span class="badge" id="alert-badge">0</span>
+                    <svg class="chevron" id="alert-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+            <div class="collapsible" id="alert-body">
+                <div class="alert-feed" id="alert-feed">
+                    <div class="alert-empty">No alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detection Tuning (collapsible, starts hidden) -->
+        <div class="section">
+            <div class="section-header clickable" id="tune-toggle">
+                <span class="section-title">Detection Tuning</span>
+                <svg class="chevron closed" id="tune-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="collapsible closed" id="tune-body">
+                <div class="slider-row">
+                    <span class="slider-label">Confidence</span>
+                    <input type="range" id="sl-conf" min="10" max="90" value="35" step="5">
+                    <span class="slider-value" id="sv-conf">0.35</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">NMS IoU</span>
+                    <input type="range" id="sl-nms" min="10" max="80" value="50" step="5">
+                    <span class="slider-value" id="sv-nms">0.50</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">Max Age</span>
+                    <input type="range" id="sl-maxage" min="30" max="500" value="360" step="10">
+                    <span class="slider-value" id="sv-maxage">360</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">Min Hits</span>
+                    <input type="range" id="sl-minhits" min="1" max="10" value="6" step="1">
+                    <span class="slider-value" id="sv-minhits">6</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">Tracker IoU</span>
+                    <input type="range" id="sl-triou" min="5" max="50" value="20" step="5">
+                    <span class="slider-value" id="sv-triou">0.20</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">Appear. Wt</span>
+                    <input type="range" id="sl-appwt" min="0" max="100" value="45" step="5">
+                    <span class="slider-value" id="sv-appwt">0.45</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let ws, reconnectTimer;
+let fishExpanded = true;
+let lastAlertKey = '';
+
+function connect() {
+    ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => {
+        document.getElementById('status-dot').classList.add('connected');
+        document.getElementById('status-text').textContent = 'Connected';
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+    };
+    ws.onclose = () => {
+        document.getElementById('status-dot').classList.remove('connected');
+        document.getElementById('status-text').textContent = 'Reconnecting...';
+        reconnectTimer = setTimeout(connect, 2000);
+    };
+    ws.onerror = () => ws.close();
+
+    let slidersInit = false;
+    ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type !== 'frame_update') return;
+        updateVideo(data.frame);
+        updateFish(data.health.fish);
+        updateAlerts(data.health.active_alerts);
+        updateStats(data.health.stats, data.health.baseline, data.health.summary);
+        if (!slidersInit && data.health.tuning) { syncSliders(data.health.tuning); slidersInit = true; }
+    };
+}
+
+function updateVideo(b64) {
+    const img = document.getElementById('video-feed');
+    const ph = document.getElementById('video-placeholder');
+    img.src = 'data:image/jpeg;base64,' + b64;
+    img.style.display = 'block';
+    ph.style.display = 'none';
+}
+
+function updateFish(fish) {
+    const big = document.getElementById('fish-expanded');
+    const mini = document.getElementById('fish-collapsed');
+    const badge = document.getElementById('fish-badge');
+
+    if (!fish || !fish.length) {
+        big.innerHTML = '<div class="alert-empty">No fish detected yet</div>';
+        mini.innerHTML = '';
+        badge.textContent = '0 tracked';
+        return;
+    }
+    badge.textContent = fish.length + ' tracked';
+
+    // Clear empty state
+    const empty = big.querySelector('.alert-empty');
+    if (empty) empty.remove();
+
+    const ids = new Set(fish.map(f => f.id));
+
+    // Remove stale cards
+    big.querySelectorAll('.fish-card').forEach(c => {
+        if (!ids.has(+c.dataset.fid)) c.remove();
+    });
+
+    // Update or create expanded cards (in-place, no flicker)
+    fish.forEach(f => {
+        const pct = (f.score * 100).toFixed(0);
+        const v = (f.visual_score * 100).toFixed(0);
+        const b = (f.behavior_score * 100).toFixed(0);
+        let el = big.querySelector(`[data-fid="${f.id}"]`);
+
+        if (el) {
+            el.className = 'fish-card ' + f.status;
+            el.querySelector('.fc-status').className = 'fc-status ' + f.status;
+            el.querySelector('.fc-status').textContent = f.status;
+            el.querySelector('.fc-score').className = 'fc-score ' + f.status;
+            el.querySelector('.fc-score').textContent = pct + '%';
+            el.querySelector('.fc-v').textContent = v + '%';
+            el.querySelector('.fc-b').textContent = b + '%';
+            el.querySelector('.sparkline').innerHTML = drawSparkline(f.score_history, f.status);
+            // Update or add/remove reasons
+            let reasonsEl = el.querySelector('.fc-reasons');
+            if (f.reasons && f.reasons.length) {
+                if (!reasonsEl) { reasonsEl = document.createElement('div'); reasonsEl.className = 'fc-reasons'; el.querySelector('.fc-metrics').after(reasonsEl); }
+                reasonsEl.textContent = f.reasons.slice(0,2).join(', ');
+            } else if (reasonsEl) { reasonsEl.remove(); }
+        } else {
+            const d = document.createElement('div');
+            d.className = 'fish-card ' + f.status;
+            d.dataset.fid = f.id;
+            d.innerHTML = `
+                <div class="fc-top">
+                    <div>
+                        <div class="fc-name">Fish #${f.id}</div>
+                        <span class="fc-status ${f.status}">${f.status}</span>
+                    </div>
+                    <div class="fc-score ${f.status}">${pct}%</div>
+                </div>
+                <div class="fc-metrics">Visual <span class="fc-v">${v}%</span> &nbsp; Behavior <span class="fc-b">${b}%</span></div>
+                ${f.reasons && f.reasons.length ? '<div class="fc-reasons">' + f.reasons.slice(0,2).join(', ') + '</div>' : ''}
+                <div class="sparkline">${drawSparkline(f.score_history, f.status)}</div>`;
+            big.appendChild(d);
+        }
+    });
+
+    // Compact rows (tiny — just rebuild)
+    mini.innerHTML = fish.map(f => {
+        const pct = (f.score * 100).toFixed(0);
+        return `<div class="fc-mini ${f.status}">
+            <span class="fc-mini-id">Fish #${f.id}</span>
+            <span class="fc-mini-status ${f.status}">${f.status}</span>
+            <span class="fc-mini-score ${f.status}">${pct}%</span>
+        </div>`;
+    }).join('');
+}
+
+function drawSparkline(data, status) {
+    if (!data || data.length < 2) return '';
+    const w = 100, h = 28;
+    const mn = Math.min(...data) - 0.05, mx = Math.max(...data) + 0.05;
+    const rng = mx - mn || 1;
+    const pts = data.map((v, i) =>
+        `${(i / (data.length - 1)) * w},${h - ((v - mn) / rng) * h}`
+    ).join(' ');
+    const colors = { Healthy: '#22c55e', Concern: '#f59e0b', Warning: '#f97316', Critical: '#ef4444' };
+    const c = colors[status] || '#888';
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <polyline fill="none" stroke="${c}" stroke-width="1.5" points="${pts}"/>
+    </svg>`;
+}
+
+function updateAlerts(alerts) {
+    const container = document.getElementById('alert-feed');
+    const badge = document.getElementById('alert-badge');
+
+    if (!alerts || !alerts.length) {
+        if (!container.querySelector('.alert-empty')) {
+            container.innerHTML = '<div class="alert-empty">No alerts</div>';
+        }
+        badge.textContent = '0';
+        lastAlertKey = '';
+        return;
+    }
+    badge.textContent = alerts.length;
+
+    // Only rebuild if alerts actually changed
+    const key = alerts.map(a => (a.alert_id || a.title) + a.timestamp).join('|');
+    if (key === lastAlertKey) return;
+    lastAlertKey = key;
+
+    container.innerHTML = alerts.slice().reverse().map(a => {
+        const lv = a.alert_level || 'info';
+        const time = a.timestamp ? new Date(a.timestamp).toLocaleTimeString() : '';
+        return `<div class="alert-item ${lv}">
+            <span class="alert-level ${lv}">${lv}</span>
+            <span class="alert-msg">${a.message || a.title || ''}</span>
+            <span class="alert-time">${time}</span>
+        </div>`;
+    }).join('');
+}
+
+function updateStats(stats, baseline, summary) {
+    if (stats) {
+        document.getElementById('stat-fps').textContent = stats.fps || '--';
+        document.getElementById('stat-fish').textContent = stats.fish_count || 0;
+    }
+    if (summary) {
+        document.getElementById('stat-alerts').textContent = (summary.critical || 0) + (summary.warning || 0);
+    }
+    const bs = document.getElementById('baseline-section');
+    if (baseline && baseline.collecting) {
+        bs.style.display = 'block';
+        const pct = (baseline.progress || 0).toFixed(0);
+        document.getElementById('baseline-text').textContent = `Collecting baseline... ${pct}%`;
+        document.getElementById('baseline-fill').style.width = pct + '%';
+    } else {
+        bs.style.display = 'none';
+    }
+}
+
+// ── Toggles ──
+function toggle(togId, bodyId, chevId) {
+    document.getElementById(togId).addEventListener('click', () => {
+        document.getElementById(bodyId).classList.toggle('closed');
+        document.getElementById(chevId).classList.toggle('closed');
+    });
+}
+
+// Fish: swap between expanded/collapsed
+document.getElementById('fish-toggle').addEventListener('click', () => {
+    fishExpanded = !fishExpanded;
+    document.getElementById('fish-chev').classList.toggle('closed');
+    document.getElementById('fish-expanded').style.display = fishExpanded ? '' : 'none';
+    document.getElementById('fish-collapsed').style.display = fishExpanded ? 'none' : '';
+});
+
+toggle('alert-toggle', 'alert-body', 'alert-chev');
+toggle('tune-toggle', 'tune-body', 'tune-chev');
+
+document.getElementById('skip-btn').addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'skip_baseline' }));
+});
+
+// ── Sliders ──
+function syncSliders(t) {
+    if (t.confidence != null) { document.getElementById('sl-conf').value = Math.round(t.confidence * 100); document.getElementById('sv-conf').textContent = t.confidence.toFixed(2); }
+    if (t.nms_iou != null) { document.getElementById('sl-nms').value = Math.round(t.nms_iou * 100); document.getElementById('sv-nms').textContent = t.nms_iou.toFixed(2); }
+    if (t.max_age != null) { document.getElementById('sl-maxage').value = t.max_age; document.getElementById('sv-maxage').textContent = t.max_age; }
+    if (t.min_hits != null) { document.getElementById('sl-minhits').value = t.min_hits; document.getElementById('sv-minhits').textContent = t.min_hits; }
+    if (t.tracker_iou != null) { document.getElementById('sl-triou').value = Math.round(t.tracker_iou * 100); document.getElementById('sv-triou').textContent = t.tracker_iou.toFixed(2); }
+    if (t.appearance_weight != null) { document.getElementById('sl-appwt').value = Math.round(t.appearance_weight * 100); document.getElementById('sv-appwt').textContent = t.appearance_weight.toFixed(2); }
+}
+
+function setupSlider(sId, vId, param, divisor) {
+    document.getElementById(sId).addEventListener('input', () => {
+        const raw = parseInt(document.getElementById(sId).value);
+        const val = divisor ? raw / divisor : raw;
+        document.getElementById(vId).textContent = divisor ? val.toFixed(2) : raw;
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'tune', param, value: val }));
+    });
+}
+
+setupSlider('sl-conf', 'sv-conf', 'confidence', 100);
+setupSlider('sl-nms', 'sv-nms', 'nms_iou', 100);
+setupSlider('sl-maxage', 'sv-maxage', 'max_age', null);
+setupSlider('sl-minhits', 'sv-minhits', 'min_hits', null);
+setupSlider('sl-triou', 'sv-triou', 'tracker_iou', 100);
+setupSlider('sl-appwt', 'sv-appwt', 'appearance_weight', 100);
+
+connect();
+</script>
+</body>
+</html>
