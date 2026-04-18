@@ -74,7 +74,8 @@ class BehaviorAnalyzer:
         position_history: List[Tuple[int, int]],
         bbox_history: List[Tuple[int, int, int, int]],
         other_fish_positions: Optional[List[Tuple[int, int]]] = None,
-        time_window_seconds: float = 10.0
+        time_window_seconds: float = 10.0,
+        frame_dimensions: Optional[Tuple[int, int]] = None
     ) -> BehaviorMetrics:
         """
         Analyze fish behavior based on tracking history
@@ -95,12 +96,16 @@ class BehaviorAnalyzer:
         speed = self._calculate_swimming_speed(position_history)
         pattern_score = self._analyze_swimming_pattern(position_history)
         activity_score = self._analyze_activity_level(position_history, speed)
+        # Use actual frame dimensions if provided
+        fw, fh = frame_dimensions if frame_dimensions else (640, self.tank_height)
+
         isolation_score = self._analyze_isolation(
             position_history[-1] if position_history else (0, 0),
-            other_fish_positions
+            other_fish_positions,
+            frame_dims=(fw, fh)
         )
-        surface_ratio = self._calculate_surface_time(bbox_history)
-        bottom_ratio = self._calculate_bottom_time(bbox_history)
+        surface_ratio = self._calculate_surface_time(bbox_history, tank_h=fh)
+        bottom_ratio = self._calculate_bottom_time(bbox_history, tank_h=fh)
         erratic_score = self._analyze_erratic_movement(position_history)
 
         # Calculate overall behavior score
@@ -232,7 +237,8 @@ class BehaviorAnalyzer:
     def _analyze_isolation(
         self,
         fish_position: Tuple[int, int],
-        other_positions: Optional[List[Tuple[int, int]]]
+        other_positions: Optional[List[Tuple[int, int]]],
+        frame_dims: Tuple[int, int] = (640, 480)
     ) -> float:
         """
         Analyze if fish is isolating from others
@@ -254,8 +260,8 @@ class BehaviorAnalyzer:
 
         min_distance = min(distances)
 
-        # Normalize by tank size (assume 640x480)
-        tank_diagonal = np.sqrt(640**2 + 480**2)
+        # Normalize by actual tank size
+        tank_diagonal = np.sqrt(frame_dims[0]**2 + frame_dims[1]**2)
         normalized_distance = min_distance / tank_diagonal
 
         # Convert to isolation score
@@ -264,12 +270,13 @@ class BehaviorAnalyzer:
 
         return isolation_score
 
-    def _calculate_surface_time(self, bbox_history: List[Tuple[int, int, int, int]]) -> float:
+    def _calculate_surface_time(self, bbox_history: List[Tuple[int, int, int, int]], tank_h: int = None) -> float:
         """Calculate proportion of time spent at water surface"""
         if not bbox_history:
             return 0.0
 
-        surface_threshold = self.tank_height * 0.2  # Top 20% of tank
+        h = tank_h if tank_h else self.tank_height
+        surface_threshold = h * 0.2  # Top 20% of tank
 
         surface_frames = 0
         for bbox in bbox_history:
@@ -279,12 +286,13 @@ class BehaviorAnalyzer:
 
         return surface_frames / len(bbox_history)
 
-    def _calculate_bottom_time(self, bbox_history: List[Tuple[int, int, int, int]]) -> float:
+    def _calculate_bottom_time(self, bbox_history: List[Tuple[int, int, int, int]], tank_h: int = None) -> float:
         """Calculate proportion of time spent at tank bottom"""
         if not bbox_history:
             return 0.0
 
-        bottom_threshold = self.tank_height * 0.8  # Bottom 20% of tank
+        h = tank_h if tank_h else self.tank_height
+        bottom_threshold = h * 0.8  # Bottom 20% of tank
 
         bottom_frames = 0
         for bbox in bbox_history:
